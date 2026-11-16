@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>POLARIS STATION — 5v5 Tactical FPS</title>
+<link rel="icon" href="data:,">
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#060b18;
+    font-family:"Segoe UI",system-ui,Arial,sans-serif;color:#e8eef7;
+    -webkit-user-select:none;user-select:none}
+  #app{position:fixed;inset:0}
+  canvas.webgl{display:block;width:100%;height:100%}
+  .hidden{display:none !important}
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+  .panel{background:rgba(6,14,28,.72);border:1px solid rgba(140,190,255,.28);
+    border-radius:8px;backdrop-filter:blur(2px)}
+  #topbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:center;gap:14px;padding:6px 16px;font-weight:600}
+  #topbar .team{font-size:17px;letter-spacing:1px}
+  #topbar .team.wolves{color:#ffb347}
+  #topbar .team.wardens{color:#8fd4ff}
+  #topbar .sc{font-size:22px;color:#fff}
+  #timer{font-size:20px;color:#fff;min-width:52px;text-align:center}
+  #round-label{font-size:11px;color:#9fb6d4;letter-spacing:2px}
+  #bomb-status{font-size:12px;color:#ff6b6b;font-weight:700}
+  #minimap-wrap{position:absolute;top:10px;left:10px;padding:6px}
+  #minimap{display:block}
+  #minimap-cap{font-size:10px;color:#9fb6d4;letter-spacing:2px;text-align:center;margin-top:2px}
+  #killfeed{position:absolute;top:10px;right:10px;width:300px;text-align:right;
+    font-size:13px;line-height:1.5}
+  #killfeed .kf{margin-bottom:3px;text-shadow:0 1px 2px #000}
+  #killfeed .kf b{color:#ffd27a}
+  #killfeed .hs{color:#ff5d5d;font-weight:800}
+  #killfeed .victim{color:#8fd4ff}
+  #killfeed .killer{color:#ffb347}
+  #comms{position:absolute;left:10px;bottom:170px;width:330px;font-size:13px;line-height:1.45}
+  #comms .cm{margin-bottom:3px;text-shadow:0 1px 2px #000}
+  #comms .cm b{color:#7ee2a0}
+  #crosshair{position:absolute;left:50%;top:50%;width:0;height:0}
+  #crosshair .ch{position:absolute;background:#fff;box-shadow:0 0 3px #000}
+  #crosshair .dot{position:absolute;left:-2px;top:-2px;width:4px;height:4px;border-radius:50%;
+    background:#fff;box-shadow:0 0 3px #000}
+  #hitmarker{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;
+    opacity:0}
+  #hitmarker.on{opacity:1}
+  #hitmarker svg{width:26px;height:26px}
+  #hitdir{position:absolute;left:50%;top:50%;width:150px;height:150px;margin:-75px 0 0 -75px}
+  #bottombar{position:absolute;right:14px;bottom:12px;display:flex;flex-direction:column;
+    align-items:flex-end;gap:4px}
+  #weapon-name{font-size:15px;font-weight:700;letter-spacing:1px;color:#ffd27a;
+    text-shadow:0 1px 2px #000}
+  #ammo-line{font-size:34px;font-weight:800;color:#fff;text-shadow:0 2px 4px #000;line-height:1}
+  #ammo-line .res{font-size:18px;color:#9fb6d4;font-weight:600}
+  #firemode{font-size:11px;color:#9fb6d4;letter-spacing:2px}
+  #bars{position:absolute;left:14px;bottom:12px;width:260px}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+  .bar-row .lab{font-size:11px;width:46px;letter-spacing:1px;color:#cfe0f5}
+  .bar{flex:1;height:14px;background:rgba(0,0,0,.55);border:1px solid rgba(140,190,255,.35);
+    border-radius:3px;overflow:hidden}
+  .bar>i{display:block;height:100%}
+  #hp-fill{background:linear-gradient(90deg,#37d67a,#7ee2a0)}
+  #armor-fill{background:linear-gradient(90deg,#3aa7ff,#8fd4ff)}
+  .bar-row .num{font-size:15px;font-weight:700;width:34px;text-align:right}
+  #money-row{margin-top:6px;font-size:15px;font-weight:700;color:#ffd27a;text-shadow:0 1px 2px #000}
+  #grenades{font-size:12px;color:#cfe0f5;text-shadow:0 1px 2px #000}
+  #grenades b{color:#fff}
+  #interact{position:absolute;left:50%;top:58%;transform:translateX(-50%);
+    font-size:16px;font-weight:700;color:#fff;text-shadow:0 1px 3px #000;text-align:center}
+  #interact .key{display:inline-block;border:1px solid #fff;border-radius:4px;padding:1px 7px;
+    margin-right:6px;background:rgba(0,0,0,.5)}
+  #plant-bar{width:220px;height:10px;margin:6px auto 0;background:rgba(0,0,0,.6);
+    border:1px solid #ffb347;border-radius:5px;overflow:hidden}
+  #plant-fill{display:block;height:100%;width:0%;background:#ffb347}
+  #hint{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);
+    font-size:12px;color:#cfe0f5;text-shadow:0 1px 2px #000;opacity:.85}
+  #damage-flash{position:fixed;inset:0;pointer-events:none;z-index:6;opacity:0;
+    background:radial-gradient(ellipse at center,transparent 55%,rgba(255,30,30,.55) 100%)}
+  #flash-overlay{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:#fff}
+  #scope-overlay{position:fixed;inset:0;pointer-events:none;z-index:6;
+    background:radial-gradient(circle at center,transparent 26%,#000 27.5%)}
+  #scope-overlay .sl{position:absolute;left:50%;top:50%;background:rgba(0,0,0,.9)}
+  #scope-overlay .h{width:100%;height:2px;transform:translate(-50%,-50%)}
+  #scope-overlay .v{width:2px;height:100%;transform:translate(-50%,-50%)}
+  /* ---------- Buy menu ---------- */
+  #buy-menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;
+    width:640px;padding:16px 20px;pointer-events:auto}
+  #buy-menu h2{margin:0 0 2px;font-size:20px;letter-spacing:3px;color:#ffd27a}
+  #buy-menu .sub{font-size:12px;color:#9fb6d4;margin-bottom:10px}
+  #buy-menu .cash{font-size:16px;font-weight:700;color:#ffd27a;margin-bottom:10px}
+  .buy-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .buy-item{display:flex;justify-content:space-between;align-items:center;
+    background:rgba(20,34,58,.85);border:1px solid rgba(140,190,255,.3);border-radius:6px;
+    padding:8px 12px;cursor:pointer}
+  .buy-item:hover{border-color:#ffb347}
+  .buy-item.owned{border-color:#37d67a}
+  .buy-item .nm{font-size:14px;font-weight:700}
+  .buy-item .ds{font-size:11px;color:#9fb6d4}
+  .buy-item .pr{font-size:14px;font-weight:700;color:#ffd27a}
+  .buy-item .key{font-size:11px;color:#9fb6d4;border:1px solid #5a7396;border-radius:3px;
+    padding:0 5px;margin-right:6px}
+  #buy-close{margin-top:12px;font-size:12px;color:#9fb6d4;text-align:center}
+  /* ---------- Scoreboard ---------- */
+  #scoreboard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;
+    width:560px;padding:16px 20px}
+  #scoreboard h2{margin:0 0 10px;font-size:18px;letter-spacing:3px;text-align:center}
+  #scoreboard table{width:100%;border-collapse:collapse;font-size:14px}
+  #scoreboard th{font-size:11px;color:#9fb6d4;letter-spacing:1px;text-align:left;padding:4px 6px}
+  #scoreboard td{padding:5px 6px;border-top:1px solid rgba(140,190,255,.15)}
+  #scoreboard .you{color:#ffd27a;font-weight:700}
+  #scoreboard .dead{color:#7a8ba3;text-decoration:line-through}
+  /* ---------- Overlays ---------- */
+  .overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 35%,rgba(10,24,48,.88),rgba(3,6,14,.96))}
+  .card{width:680px;max-width:92vw;text-align:center;padding:28px 30px}
+  .card h1{margin:0;font-size:44px;letter-spacing:8px;color:#fff;text-shadow:0 0 24px rgba(120,255,170,.5)}
+  .card h1 .aurora{color:#7ee2a0}
+  .card .tag{font-size:14px;letter-spacing:4px;color:#ffb347;margin-top:6px}
+  .card p{font-size:14px;line-height:1.6;color:#cfe0f5}
+  .card .premise{font-size:13px;color:#9fb6d4}
+  .diff-row{display:flex;gap:10px;justify-content:center;margin:16px 0}
+  .diff-btn{flex:1;padding:12px 6px;border:1px solid rgba(140,190,255,.4);border-radius:8px;
+    background:rgba(20,34,58,.8);cursor:pointer;color:#e8eef7}
+  .diff-btn.sel{border-color:#ffb347;background:rgba(80,50,10,.6)}
+  .diff-btn b{display:block;font-size:15px;letter-spacing:1px}
+  .diff-btn span{font-size:11px;color:#9fb6d4}
+  .big-btn{display:inline-block;margin-top:8px;padding:13px 44px;font-size:17px;font-weight:800;
+    letter-spacing:3px;color:#0a1424;background:#ffb347;border:none;border-radius:8px;cursor:pointer}
+  .big-btn:hover{background:#ffc966}
+  .controls{margin-top:18px;font-size:12px;color:#9fb6d4;line-height:1.9;text-align:left;
+    display:inline-block}
+  .controls b{color:#e8eef7}
+  #round-end{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 35%,rgba(20,42,72,.68),rgba(5,10,22,.84))}
+  #round-end .card h1{font-size:52px}
+  #round-end .card h1.win{color:#7ee2a0}
+  #round-end .card h1.lose{color:#ff6b6b}
+  #round-end .detail{font-size:16px;color:#e8eef7;margin:8px 0 2px}
+  #round-end .scoreline{font-size:26px;font-weight:800;margin:6px 0}
+  #round-end .next{font-size:12px;color:#9fb6d4}
+  #match-end .card h1{font-size:46px}
+  .foot{margin-top:16px;font-size:11px;color:#5f7889}
+  #loading{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+    background:#060b18;color:#9fb6d4;font-size:14px;letter-spacing:2px}
+</style>
+<script type="importmap">
+{"imports":{"three":"./vendor/three/three.module.min.js"}}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="loading">LOADING POLARIS STATION…</div>
+
+<div id="hud" class="hidden">
+  <div id="topbar" class="panel">
+    <span class="team wolves">WOLVES</span><span class="sc" id="score-w">0</span>
+    <span id="round-label">ROUND 1/13</span>
+    <span class="sc" id="score-d">0</span><span class="team wardens">WARDENS</span>
+    <span id="timer">1:40</span><span id="bomb-status"></span>
+  </div>
+  <div id="minimap-wrap" class="panel"><canvas id="minimap" width="190" height="150"></canvas>
+    <div id="minimap-cap">POLARIS STATION</div></div>
+  <div id="killfeed"></div>
+  <div id="comms"></div>
+  <div id="crosshair"><span class="ch" style="left:-1px;top:-14px;width:2px;height:10px"></span>
+    <span class="ch" style="left:-1px;top:4px;width:2px;height:10px"></span>
+    <span class="ch" style="left:-14px;top:-1px;width:10px;height:2px"></span>
+    <span class="ch" style="left:4px;top:-1px;width:10px;height:2px"></span>
+    <span class="dot"></span></div>
+  <div id="hitmarker"><svg viewBox="0 0 26 26"><g stroke="#fff" stroke-width="2.4">
+    <line x1="3" y1="3" x2="9" y2="9"/><line x1="23" y1="3" x2="17" y2="9"/>
+    <line x1="3" y1="23" x2="9" y2="17"/><line x1="23" y1="23" x2="17" y2="17"/></g></svg></div>
+  <canvas id="hitdir" width="150" height="150"></canvas>
+  <div id="bars">
+    <div class="bar-row"><span class="lab">HEALTH</span><div class="bar"><i id="hp-fill" style="width:100%"></i></div><span class="num" id="hp-num">100</span></div>
+    <div class="bar-row"><span class="lab">ARMOR</span><div class="bar"><i id="armor-fill" style="width:0%"></i></div><span class="num" id="armor-num">0</span></div>
+    <div id="money-row">$<span id="money">800</span></div>
+    <div id="grenades"></div>
+  </div>
+  <div id="bottombar">
+    <div id="weapon-name">P-9 SIDEARM</div>
+    <div id="ammo-line"><span id="ammo">12</span> <span class="res">/ <span id="reserve">36</span></span></div>
+    <div id="firemode">SEMI-AUTO · [R] RELOAD</div>
+  </div>
+  <div id="interact" class="hidden"></div>
+  <div id="hint">WASD move · SHIFT walk quiet · C crouch · B buy · TAB scoreboard · G grenade · Right-click aim</div>
+</div>
+<div id="damage-flash"></div>
+<div id="flash-overlay"></div>
+<div id="scope-overlay" class="hidden"><span class="sl h"></span><span class="sl v"></span></div>
+
+<div id="buy-menu" class="panel hidden">
+  <h2>BUY PHASE</h2>
+  <div class="sub">Round <span id="buy-round">1</span> · Spend your money — it stays with you into the round.</div>
+  <div class="cash">$<span id="buy-cash">800</span></div>
+  <div class="buy-grid" id="buy-grid"></div>
+  <div id="buy-close">[B] to hide the menu · Grenades: [1] Frag $300 · [2] Flash $200 · [3] Smoke $300</div>
+  <button class="big-btn" id="deploy-now" style="margin-top:12px">DEPLOY NOW ▸</button>
+</div>
+
+<div id="scoreboard" class="panel hidden">
+  <h2>POLARIS STATION — SCOREBOARD</h2>
+  <table><thead><tr><th>PLAYER</th><th>TEAM</th><th>K</th><th>D</th><th>$</th></tr></thead>
+  <tbody id="score-rows"></tbody></table>
+</div>
+
+<div id="start-screen" class="overlay hidden">
+  <div class="card">
+    <h1>POLARIS <span class="aurora">STATION</span></h1>
+    <div class="tag">5v5 TACTICAL FPS · PLANT / DEFUSE</div>
+    <p>An arctic research station under polar night. You are a <b style="color:#ffb347">WOLF</b>:
+    carry the charge to <b>RADAR DOME (A)</b> or <b>FUEL DEPOT (B)</b>, plant it, and hold the site
+    until it blows — or wipe the <b style="color:#8fd4ff">WARDENS</b> out. First to 7 rounds takes the station.</p>
+    <div class="diff-row">
+      <div class="diff-btn" data-diff="recruit"><b>RECRUIT</b><span>Slower bots, softer shots</span></div>
+      <div class="diff-btn sel" data-diff="veteran"><b>VETERAN</b><span>The intended fight</span></div>
+      <div class="diff-btn" data-diff="elite"><b>ELITE</b><span>Instant reactions, hard hits</span></div>
+    </div>
+    <button class="big-btn" id="play-btn">DEPLOY ▸</button>
+    <div class="controls">
+      <b>WASD</b> move · <b>Mouse</b> aim · <b>Click</b> fire · <b>R</b> reload · <b>Right-click</b> aim down sights<br>
+      <b>Shift</b> walk quiet · <b>C</b> crouch · <b>B</b> buy menu · <b>G</b> throw grenade · <b>E</b> plant / defuse (hold)<br>
+      <b>Tab</b> scoreboard · <b>1/2/3</b> frag / flash / smoke · Headshots pay double · Stop to shoot straight
+    </div>
+    <p class="premise">A charge planted is a round half-won. A defuse in the last second is a legend.</p>
+  </div>
+</div>
+
+<div id="round-end" class="overlay hidden">
+  <div class="card">
+    <h1 id="re-title" class="win">ROUND WON</h1>
+    <div class="detail" id="re-detail">Charge detonated.</div>
+    <div class="scoreline"><span style="color:#ffb347">WOLVES <span id="re-sw">1</span></span> — <span style="color:#8fd4ff"><span id="re-sd">0</span> WARDENS</span></div>
+    <div class="next" id="re-next">Next round in 4…</div>
+  </div>
+</div>
+
+<div id="match-end" class="overlay hidden">
+  <div class="card">
+    <h1 id="me-title">STATION TAKEN</h1>
+    <div class="detail" id="me-detail" style="font-size:16px">WOLVES win the match 7—3.</div>
+    <div class="next">Accuracy <span id="me-acc">0%</span> · Kills <span id="me-kills">0</span> · Deaths <span id="me-deaths">0</span></div>
+    <button class="big-btn" id="again-btn">PLAY AGAIN ▸</button>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
